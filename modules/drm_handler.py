@@ -43,6 +43,11 @@ from vars import api_url, api_token
 
 # .....,.....,.......,...,.......,....., .....,.....,.......,...,.......,.....,
 
+def safe_json(response):
+    try:
+        return response.json()
+    except Exception:
+        return {}
 
 async def drm_handler(bot: Client, m: Message):
     globals.processing_request = True
@@ -243,7 +248,8 @@ async def drm_handler(bot: Client, m: Message):
                 if "youtu" in url:
                     oembed_url = f"https://www.youtube.com/oembed?url={url}&format=json"
                     response = requests.get(oembed_url)
-                    audio_title = response.json().get('title', 'YouTube Video')
+                    resp_json = safe_json(response)
+                    audio_title = resp_json.get('title', 'YouTube Video')
                     audio_title = audio_title.replace("_", " ")
                     name = f'{audio_title[:60]}'
                     namef = f'{audio_title[:60]}'
@@ -298,16 +304,26 @@ async def drm_handler(bot: Client, m: Message):
                 headers = {'host': 'api.classplusapp.com', 'x-access-token': f'{cptoken}', 'accept-language': 'EN', 'api-version': '18', 'app-version': '1.4.73.2', 'build-number': '35', 'connection': 'Keep-Alive', 'content-type': 'application/json', 'device-details': 'Xiaomi_Redmi 7_SDK-32', 'device-id': 'c28d3cb16bbdac01', 'region': 'IN', 'user-agent': 'Mobile-Android', 'webengage-luid': '00000187-6fe4-5d41-a530-26186858be4c', 'accept-encoding': 'gzip'}
                 params = {"url": f"{url}"}
                 response = requests.get('https://api.classplusapp.com/cams/uploader/video/jw-signed-url', headers=headers, params=params)
-                url = response.json()['url']  
+                resp_json = safe_json(response)
+                if not resp_json.get('url'):
+                    raise Exception(f"Classplus API error (tencdn): status={response.status_code}, body={response.text[:200]}")
+                url = resp_json['url']
            
             elif 'videos.classplusapp' in url:
-                url = requests.get(f'https://api.classplusapp.com/cams/uploader/video/jw-signed-url?url={url}', headers={'x-access-token': f'{cptoken}'}).json()['url']
+                response = requests.get(f'https://api.classplusapp.com/cams/uploader/video/jw-signed-url?url={url}', headers={'x-access-token': f'{cptoken}'})
+                resp_json = safe_json(response)
+                if not resp_json.get('url'):
+                    raise Exception(f"Classplus API error (videos): status={response.status_code}, body={response.text[:200]}")
+                url = resp_json['url']
             
             elif 'media-cdn.classplusapp.com' in url or 'media-cdn-alisg.classplusapp.com' in url or 'media-cdn-a.classplusapp.com' in url: 
                 headers = {'host': 'api.classplusapp.com', 'x-access-token': f'{cptoken}', 'accept-language': 'EN', 'api-version': '18', 'app-version': '1.4.73.2', 'build-number': '35', 'connection': 'Keep-Alive', 'content-type': 'application/json', 'device-details': 'Xiaomi_Redmi 7_SDK-32', 'device-id': 'c28d3cb16bbdac01', 'region': 'IN', 'user-agent': 'Mobile-Android', 'webengage-luid': '00000187-6fe4-5d41-a530-26186858be4c', 'accept-encoding': 'gzip'}
                 params = {"url": f"{url}"}
                 response = requests.get('https://api.classplusapp.com/cams/uploader/video/jw-signed-url', headers=headers, params=params)
-                url   = response.json()['url']
+                resp_json = safe_json(response)
+                if not resp_json.get('url'):
+                    raise Exception(f"Classplus API error (media-cdn): status={response.status_code}, body={response.text[:200]}")
+                url = resp_json['url']
 
             if "edge.api.brightcove.com" in url:
                 bcov = f'bcov_auth={cwtoken}'
